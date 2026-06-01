@@ -46,49 +46,47 @@ with col_resultados:
     kpi2.metric("Rentabilidad Bruta", f"{rentabilidad_bruta:.2f} %")
     kpi3.metric("Rentabilidad Neta", f"{rentabilidad_neta:.2f} %")
     
-    geolocator = Nominatim(user_agent="proptech_analyzer_app_carlos")
+    # --- PROCESAMIENTO DE DATOS LOCALES (Inmune a bloqueos de internet) ---
+    st.subheader("📍 Análisis Socioeconómico del Entorno")
     
-    try:
-        # --- PROCESAMIENTO DE DATOS LOCALES (Inmune a bloqueos de internet) ---
-        st.subheader("📍 Análisis Socioeconómico del Entorno")
+    # Buscamos primero en tu base de datos local (Fuera de cualquier TRY de red)
+    info_zona = df_ine[df_ine['municipio'].str.contains(direccion.strip(), case=False, na=False)]
     
-        # Buscamos primero en tu base de datos local
-        info_zona = df_ine[df_ine['municipio'].str.contains(direccion.strip(), case=False, na=False)]
-    
-        if not info_zona.empty:
-            # Extraemos las métricas sin necesidad de llamar a APIs externas
-            renta_media = info_zona['renta_hogar'].mean()
-            vuln_media = info_zona['pct_vulnerabilidad_extranjera'].mean()
+    if not info_zona.empty:
+        # Extraemos las métricas sin necesidad de llamar a APIs externas
+        renta_media = info_zona['renta_hogar'].mean()
+        vuln_media = info_zona['pct_vulnerabilidad_extranjera'].mean()
         
-            if vuln_media > 15:
-                riesgo_status = "🔴 ALTO (Revisar histórico de impagos en la zona)"
-            elif vuln_media > 8:
-                riesgo_status = "🟡 MEDIO"
-            else:
-                riesgo_status = "🟢 BAJO (Zona socioeconómicamente muy estable)"
-        
-            res1, res2 = st.columns(2)
-            res1.markdown(f"**Renta Media Hogar en municipio:** {renta_media:,.0f} €")
-            res2.markdown(f"**Score de Riesgo de Impago:** {riesgo_status}")
-            res1.markdown(f"**Tasa de Vulnerabilidad Económica:** {vuln_media:.2f}%")
+        if vuln_media > 15:
+            riesgo_status = "🔴 ALTO (Revisar histórico de impagos en la zona)"
+        elif vuln_media > 8:
+            riesgo_status = "🟡 MEDIO"
         else:
-            st.info("El municipio introducido no coincide con la base de datos local de Barcelona.")
-
-        st.markdown("---")
-        st.subheader("🗺️ Mapa de la Zona")
-
-        # --- GEOLOCALIZACIÓN COMPLACIENTE (Si falla el mapa, la app sigue funcionando) ---
-        try:
-            geolocator = Nominatim(user_agent="proptech_analyzer_app_v2_carlos")
-            location = geolocator.geocode(direccion + ", Barcelona, Spain", timeout=5)
+            riesgo_status = "🟢 BAJO (Zona socioeconómicamente muy estable)"
         
-            if location:
-                m = folium.Map(location=[location.latitude, location.longitude], zoom_start=14)
-                folium.Marker([location.latitude, location.longitude], popup=direccion).add_to(m)
-                st_folium(m, width=700, height=300, key="mapa_mvp")
-            else:
-                st.warning("No se pudo centrar el mapa para esta dirección.")
+        res1, res2 = st.columns(2)
+        res1.markdown(f"**Renta Media Hogar en municipio:** {renta_media:,.0f} €")
+        res2.markdown(f"**Score de Riesgo de Impago:** {riesgo_status}")
+        res1.markdown(f"**Tasa de Vulnerabilidad Económica:** {vuln_media:.2f}%")
+    else:
+        st.info("El municipio introducido no coincide con la base de datos local de Barcelona.")
+
+    st.markdown("---")
+    st.subheader("🗺️ Mapa de la Zona")
+
+    # --- GEOLOCALIZACIÓN COMPLACIENTE ---
+    # Solo metemos en el TRY la parte conflictiva de la conexión exterior a mapas
+    try:
+        geolocator = Nominatim(user_agent="proptech_analyzer_app_v3_carlos")
+        location = geolocator.geocode(direccion + ", Barcelona, Spain", timeout=5)
+        
+        if location:
+            m = folium.Map(location=[location.latitude, location.longitude], zoom_start=14)
+            folium.Marker([location.latitude, location.longitude], popup=direccion).add_to(m)
+            st_folium(m, width=700, height=300, key="mapa_mvp")
+        else:
+            st.warning("No se pudo centrar el mapa para esta dirección.")
             
-        except Exception as e:
-            # Si salta el error 429 de bloqueo, mostramos este aviso elegante en vez de romper la app
-            st.warning("⚠️ El servicio externo de mapas está saturado en este momento, pero tus datos económicos locales siguen estando disponibles arriba.")
+    except Exception as e:
+        # Si la API pública da el error 429 o se satura, capturamos el fallo elegantemente aquí
+        st.warning("⚠️ El servicio externo de mapas está saturado en este momento, pero tus datos económicos locales siguen estando disponibles arriba.")
