@@ -20,7 +20,17 @@ col_inputs, col_resultados = st.columns([1, 2])
 
 with col_inputs:
     st.header("🏠 Datos del Inmueble")
-    direccion = st.text_input("Municipio a analizar (Ej: Igualada o Abrera):", value="Igualada")
+    # --- NUEVO CÓDIGO CON SUGERENCIAS DINÁMICAS ---
+    # 1. Extraemos la lista de municipios únicos de tu CSV y los ordenamos alfabéticamente
+    lista_municipios = sorted(df_ine['municipio'].dropna().unique())
+
+    # 2. Cambiamos el cuadro de texto simple por un selector interactivo con buscador
+    direccion = st.selectbox(
+    "Selecciona o escribe el municipio a analizar:",
+    options=lista_municipios,
+    index=lista_municipios.index("Igualada") if "Igualada" in lista_municipios else 0,
+    help="Puedes escribir las primeras letras del municipio para filtrar la lista automáticamente."
+)
     precio_compra = st.number_input("Precio de compra (€):", min_value=0, value=150000, step=5000)
     gastos_reforma = st.number_input("Gastos de reforma/notaría (€):", min_value=0, value=20000, step=1000)
     alquiler_mensual = st.number_input("Alquiler mensual estimado (€):", min_value=0, value=750, step=50)
